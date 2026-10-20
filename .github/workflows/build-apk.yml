@@ -76,19 +76,19 @@ jobs:
           retention-days: 90
 
       - name: Create GitHub Release
-        if: (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           files: output_apk/TajSend-v1.0.apk
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0-{0}', github.run_number) }}
-          name: ${{ format('TajSend v1.0 (Build #{0})', github.run_number) }}
+          tag_name: v1.0-build-${{ github.run_number }}
+          name: TajSend v1.0 (Build #${{ github.run_number }})
           body: |
             ## ⚡ TajSend v1.0 by Kolid Company
             
             Высокоскоростная передача файлов через QR-код без интернета.
             
             ### 📦 Установка:
-            1. Скачайте прикрепленный файл **`TajSend-v1.0.apk`** ниже.
+            1. Скачайте прикрепленный файл **TajSend-v1.0.apk** ниже в Assets.
             2. Откройте файл на Android-устройстве и разрешите установку.
             
             ### ✨ Особенности выпуска:
