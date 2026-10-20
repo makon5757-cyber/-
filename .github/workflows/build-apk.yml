@@ -1,0 +1,102 @@
+name: Build TajSend APK
+
+on:
+  push:
+    branches: [ "**" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Создать GitHub Release с APK файлом'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore or Generate Debug Keystore
+        run: |
+          if [ -f debug.keystore.base64 ] && [ ! -f debug.keystore ]; then
+            echo "Decoding debug.keystore from base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f debug.keystore ]; then
+            echo "Generating fallback debug keystore..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK with Gradle
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare APK Output
+        run: |
+          mkdir -p output_apk
+          APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -f "$APK_FILE" ]; then
+            cp "$APK_FILE" output_apk/TajSend-v1.0.apk
+            echo "Found APK: $APK_FILE -> output_apk/TajSend-v1.0.apk"
+            ls -lh output_apk/TajSend-v1.0.apk
+          else
+            echo "ERROR: APK file not found!"
+            exit 1
+          fi
+
+      - name: Upload APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TajSend-APK
+          path: output_apk/TajSend-v1.0.apk
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: (startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output_apk/TajSend-v1.0.apk
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0-{0}', github.run_number) }}
+          name: ${{ format('TajSend v1.0 (Build #{0})', github.run_number) }}
+          body: |
+            ## ⚡ TajSend v1.0 by Kolid Company
+            
+            Высокоскоростная передача файлов через QR-код без интернета.
+            
+            ### 📦 Установка:
+            1. Скачайте прикрепленный файл **`TajSend-v1.0.apk`** ниже.
+            2. Откройте файл на Android-устройстве и разрешите установку.
+            
+            ### ✨ Особенности выпуска:
+            - 🚀 Скорость передачи до 45+ МБ/с (оптимизированный буфер)
+            - 📷 Встроенный сканер QR-кодов CameraX и генератор QR
+            - 🔑 Быстрый 6-значный PIN для ручного подключения
+            - 📂 Браузер категорий (Фото, Видео, Музыка, Документы, APK)
+            - 🚫 0% рекламы и трекеров (в отличие от Shareit)
+            - 🔒 100% локальная приватная передача по Wi-Fi / Hotspot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

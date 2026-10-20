@@ -1,0 +1,6 @@
+{
+  "name": "TajSend",
+  "description": "Высокоскоростная передача файлов через QR-код от Kolid Company. Быстрая отправка фото, видео, музыки и документов.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
